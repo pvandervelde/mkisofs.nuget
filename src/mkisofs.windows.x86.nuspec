@@ -1,0 +1,26 @@
+<?xml version="1.0"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
+    <metadata>
+        <id>MkIsoFs.Windows.x86</id>
+        <version>$VersionMajor$.$VersionMinor$.$VersionPatch$.$VersionBuild$</version>
+        <authors>$CompanyName$</authors>
+        <owners>TumaGonx Zakkum</owners>
+        <licenseUrl>http://opensourcepack.blogspot.co.nz/p/cdrtools.html</licenseUrl>
+        <projectUrl>$CompanyUrl$</projectUrl>
+        <requireLicenseAcceptance>false</requireLicenseAcceptance>
+        <description>
+            $ProductDescription$
+        </description>
+        <releaseNotes>
+            $ReleaseNotesHtmlEncoded$
+        </releaseNotes>
+        <dependencies>
+        </dependencies>
+    </metadata>
+    <files>
+        <file src="$DirTemp$\unzip\cdrtools\win32\mkisofs.exe" />
+
+        <file src="$DirWorkspace$\README.md" />
+        <file src="$DirWorkspace$\LICENSE" />
+    </files>
+</package>

@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="11.0"
+         DefaultTargets="Prepare_DownloadMkIsoFs_Run"
+         xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+
+    <Import Project="$(DirNBuildKitMsBuildShared)\shared.importbuildsharedsettings.props"
+            Condition="Exists('$(DirNBuildKitMsBuildShared)\shared.importbuildsharedsettings.props') AND '$(ExistsSharedImportBuildSharedSettings)' != 'true' " />
+
+    <Import Project="$(DirNBuildKitMsBuildExtensions)\GetSemanticVersionFromFile.msbuild"
+            Condition="Exists('$(DirNBuildKitMsBuildExtensions)\GetSemanticVersionFromFile.msbuild') AND '$(ExistsExtensionsGetSemanticVersionFromFile)' != 'true' " />
+    <Import Project="$(DirNBuildKitMsBuildExtensions)\Unzip.msbuild"
+            Condition="Exists('$(DirNBuildKitMsBuildExtensions)\Unzip.msbuild') AND '$(ExistsExtensionsUnzip)' != 'true' " />
+
+    <PropertyGroup>
+        <FileToDownload>schily-cdrtools-3.02a07.7z</FileToDownload>
+    </PropertyGroup>
+
+    <Target
+        DependsOnTargets="Prepare_DownloadMkIsoFs_Extract"
+        Name="Prepare_DownloadMkIsoFs_Run">
+    </Target>
+
+    <Target Name="Prepare_DownloadMkIsoFs_GetVersion">
+        <GetSemanticVersionFromFile VersionFile="$(FileSemanticVersion)"
+                                    Condition="Exists('$(FileSemanticVersion)') AND '$(ShouldExecute)' == 'true' ">
+            <Output TaskParameter="VersionMajor" PropertyName="VersionMajor" />
+            <Output TaskParameter="VersionMinor" PropertyName="VersionMinor" />
+            <Output TaskParameter="VersionPatch" PropertyName="VersionPatch" />
+        </GetSemanticVersionFromFile>
+
+        <Message Text="Searching for major version: $(VersionMajor)" />
+        <Message Text="Searching for minor version: $(VersionMinor)" />
+        <Message Text="Searching for patch version: $(VersionPatch)" />
+    </Target>
+
+    <Target
+        DependsOnTargets="Prepare_DownloadMkIsoFs_GetVersion"
+        Name="Prepare_DownloadMkIsoFs_Download">
+        <ItemGroup>
+            <FilesToDownload Include="https://sourceforge.net/projects/tumagcc/files/$(FileToDownload)/download">
+                <OutputFile>$(FileToDownload)</OutputFile>
+            </FilesToDownload>
+        </ItemGroup>
+
+        <DownloadFile
+            Condition="!Exists('$(DirBuildTemp)\%(FilesToDownload.OutputFile)')"
+            OutputPath="$(DirBuildTemp)\%(FilesToDownload.OutputFile)"
+            Url="%(FilesToDownload.Identity)" />
+    </Target>
+
+    <Target
+        DependsOnTargets="Prepare_DownloadMkIsoFs_GetVersion;Prepare_DownloadMkIsoFs_Download"
+        Name="Prepare_DownloadMkIsoFs_VerifyHashes">
+
+        <!--
+            Verify that the SHA256 matches
+        -->
+        <ValidateHash
+            Hash="5344ddce4d838417fa2576fa1990449fcc588d99"
+            Path="$(DirBuildTemp)\$(FileToDownload)" />
+        <Message Text="Hash for $(FileToDownload) matches provided hash." />
+    </Target>
+
+    <Target
+        DependsOnTargets="Prepare_DownloadMkIsoFs_GetVersion;Prepare_DownloadMkIsoFs_Download;Prepare_DownloadMkIsoFs_VerifyHashes"
+        Name="Prepare_DownloadMkIsoFs_Extract">
+
+        <Exec Command="&quot;$(ToolsExternal7ZipPath)&quot; x &quot;$(DirBuildTemp)\$(FileToDownload)&quot; -o$(DirBuildTemp)\unzip\cdrtools"
+              WorkingDirectory="$(DirBuildTemp)" />
+    </Target>
+
+    <UsingTask TaskName="ValidateHash"
+               TaskFactory="CodeTaskFactory"
+               AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.v4.0.dll">
+        <ParameterGroup>
+            <Path ParameterType="System.String" Required="true" />
+            <Hash ParameterType="System.String" Required="true" />
+        </ParameterGroup>
+        <Task>
+            <Code Type="Method" Language="cs">
+                <![CDATA[
+                    public override bool Execute()
+                    {
+                        try
+                        {
+                            var fileHash = "ThisIsNotAHash";
+                            using (var stream = new System.IO.FileStream(Path, System.IO.FileMode.Open, System.IO.FileAccess.Read))
+                            {
+                                var builder = new System.Text.StringBuilder();
+
+                                using (var hashGenerator = System.Security.Cryptography.SHA1Managed.Create())
+                                {
+                                    var result = hashGenerator.ComputeHash(stream);
+                                    foreach (var b in result)
+                                    {
+                                        builder.Append(b.ToString("x2"));
+                                    }
+                                }
+
+                                fileHash = builder.ToString();
+                            }
+
+                            if (!string.Equals(Hash, fileHash, StringComparison.OrdinalIgnoreCase))
+                            {
+                                Log.LogError(
+                                    "The hashcode from the hash file [{0}] at {1} did not match the calculated hash [{2}]",
+                                    Hash,
+                                    Path,
+                                    fileHash);
+                            }
+                        }
+                        catch(Exception e)
+                        {
+                            Log.LogError(e.ToString());
+                        }
+
+                        // Log.HasLoggedErrors is true if the task logged any errors -- even if they were logged
+                        // from a task's constructor or property setter. As long as this task is written to always log an error
+                        // when it fails, we can reliably return HasLoggedErrors.
+                        return !Log.HasLoggedErrors;
+                    }
+                ]]>
+            </Code>
+        </Task>
+    </UsingTask>
+
+    <UsingTask TaskName="DownloadFile"
+               TaskFactory="CodeTaskFactory"
+               AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.v4.0.dll">
+        <ParameterGroup>
+            <Url ParameterType="System.String" Required="true" />
+            <OutputPath ParameterType="System.String" Required="true" />
+        </ParameterGroup>
+        <Task>
+            <Code Type="Method" Language="cs">
+                <![CDATA[
+                    public override bool Execute()
+                    {
+                        try
+                        {
+                            Log.LogMessage(
+                                MessageImportance.Normal,
+                                "Downloading '{0}' to '{1}'",
+                                Url,
+                                OutputPath);
+
+                            // Ignore certificate warnings
+                            System.Net.ServicePointManager.ServerCertificateValidationCallback =
+                                new System.Net.Security.RemoteCertificateValidationCallback(delegate { return true; });
+                            System.Net.ServicePointManager.SecurityProtocol =
+                                System.Net.SecurityProtocolType.Tls12 | System.Net.SecurityProtocolType.Tls11 | System.Net.SecurityProtocolType.Tls;
+                            using (var client = new System.Net.WebClient())
+                            {
+                                client.DownloadFile(Url, OutputPath);
+                            }
+                        }
+                        catch(Exception e)
+                        {
+                            Log.LogError(e.ToString());
+                        }
+
+                        // Log.HasLoggedErrors is true if the task logged any errors -- even if they were logged
+                        // from a task's constructor or property setter. As long as this task is written to always log an error
+                        // when it fails, we can reliably return HasLoggedErrors.
+                        return !Log.HasLoggedErrors;
+                    }
+                ]]>
+            </Code>
+        </Task>
+    </UsingTask>
+</Project>

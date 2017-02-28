@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="11.0"
+         DefaultTargets="PackerNuGet_Deploy_PushTo_AppVeyor_Run"
+         xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+    <PropertyGroup>
+        <!-- Defines whether the current script file has been loaded / imported or not -->
+        <ExistsDeployPushToGitHubRelease>true</ExistsDeployPushToGitHubRelease>
+    </PropertyGroup>
+
+    <Import Project="$(DirNBuildKitMsBuildShared)\shared.importdeploysharedsettings.props"
+            Condition="Exists('$(DirNBuildKitMsBuildShared)\shared.importdeploysharedsettings.props') AND '$(ExistsSharedImportDeploySharedSettings)' != 'true' " />
+
+    <Target Name="PackerNuGet_Deploy_PushTo_AppVeyor_Run">
+        <CallTarget Targets="_PackerNuGet_Deploy_PushTo_AppVeyor_Push" />
+    </Target>
+
+    <Target Name="_PackerNuGet_Deploy_PushTo_AppVeyor_Push"
+            Condition=" '$(IsOnAppVeyorBuildServer)' == 'true' ">
+        <ItemGroup>
+            <AppVeyorArtefacts Include="$(DirBuildDeploy)\**\*.nupkg" />
+        </ItemGroup>
+        <Exec
+            Command="appveyor PushArtifact %(AppVeyorArtefacts.Identity)"
+            Condition="" />
+    </Target>
+</Project>
